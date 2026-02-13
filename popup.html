@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeetCode God Mode</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>GOD MODE</h1>
+            <div class="status-badge" id="statusIndicator">IDLE</div>
+        </header>
+
+        <main>
+            <div class="input-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" placeholder="LeetCode ID">
+            </div>
+            <div class="input-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="••••••••">
+            </div>
+            
+            <div class="setting-row">
+                <label for="dailyLimit">Daily Target</label>
+                <div class="row-group">
+                    <input type="number" id="dailyLimit" min="1" max="50" value="1">
+                </div>
+            </div>
+            
+            <div class="setting-row">
+                <label for="autoSolve">Auto-Run Daily</label>
+                <input type="checkbox" id="autoSolve">
+            </div>
+
+            <div class="actions">
+                <button id="saveBtn" class="btn secondary">Save</button>
+                <button id="solveBtn" class="btn primary">Start Solving</button>
+                <button id="stopBtn" class="btn danger" style="background-color: #dc3545; color: white;">Stop</button>
+            </div>
+
+            <div class="console-log" id="consoleLog">
+                <div class="log-entry system">> God Mode v2.1 Initialized...</div>
+            </div>
+        </main>
+
+        <footer>
+            <a href="#" id="devLink" class="dev-link">
+                Developed by <span>noeankx</span>
+            </a>
+        </footer>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>

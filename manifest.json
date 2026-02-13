@@ -1,0 +1,34 @@
+{
+    "manifest_version": 3,
+    "name": "LeetCode God Mode",
+    "version": "1.0.0",
+    "description": "Automated daily LeetCode solver with streak maintenance and solution scraping.",
+    "permissions": [
+        "activeTab",
+        "scripting",
+        "alarms",
+        "storage",
+        "browsingData",
+        "cookies",
+        "clipboardWrite"
+    ],
+    "host_permissions": [
+        "*://leetcode.com/*"
+    ],
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "*://leetcode.com/*"
+            ],
+            "js": [
+                "content_script.js"
+            ]
+        }
+    ]
+}
