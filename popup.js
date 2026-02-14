@@ -9,7 +9,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const autoSolveInput = document.getElementById('autoSolve');
 
-    // Load saved settings
     chrome.storage.local.get(['leetcode_username', 'leetcode_password', 'daily_limit', 'auto_run'], (result) => {
         if (result.leetcode_username) usernameInput.value = result.leetcode_username;
         if (result.leetcode_password) passwordInput.value = result.leetcode_password;
@@ -25,14 +24,12 @@ document.addEventListener('DOMContentLoaded', () => {
         consoleLog.scrollTop = consoleLog.scrollHeight;
     }
 
-    // Helper to save settings with visual feedback
     function saveSettings(callback) {
         const username = usernameInput.value;
         const password = passwordInput.value;
         const dailyLimit = dailyLimitInput.value;
         const autoRun = autoSolveInput.checked;
 
-        // Visual Feedback
         const originalText = saveBtn.textContent;
         saveBtn.textContent = 'Saving...';
         
@@ -58,7 +55,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     solveBtn.addEventListener('click', () => {
-        // Auto-save before solving to ensure limit is up to date
         saveSettings(() => {
             log('Initiating God Mode protocol...', 'info');
             statusIndicator.textContent = 'ACTIVE';
@@ -87,7 +83,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Check Status on Load (Persistence)
     chrome.storage.local.get(['is_solving'], (res) => {
         if (res.is_solving) {
             statusIndicator.textContent = 'ACTIVE';
@@ -96,18 +91,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Listen for log updates from background (real-time push)
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (request.action === 'LOG_UPDATE') {
             log(request.message, request.type);
         }
     });
 
-    // Poll storage for persistent logs (on load and periodically)
     function refreshLogs() {
         chrome.storage.local.get(['logs'], (result) => {
             if (result.logs) {
-                consoleLog.innerHTML = ''; // limited refresh
+                consoleLog.innerHTML = ''; 
                 result.logs.forEach(item => {
                     const entry = document.createElement('div');
                     entry.className = `log-entry ${item.type}`;

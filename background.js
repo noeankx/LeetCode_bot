@@ -1,9 +1,7 @@
-// Background Service Worker
 const LEETCODE_ORIGIN = 'https://leetcode.com';
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'START_SOLVING') {
-        // Set flag in storage so content script knows to auto-proceed
         chrome.storage.local.set({ is_solving: true, solved_count: 0 }, () => {
             initiateFlow();
         });
@@ -13,7 +11,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'STOP_SOLVING') {
         chrome.storage.local.set({ is_solving: false }, () => {
             console.log('GOD MODE: Stop Requested by User.');
-            // Broadcast stop to all tabs
             chrome.tabs.query({}, (tabs) => {
                 for (let tab of tabs) {
                      chrome.tabs.sendMessage(tab.id, { action: 'STOP_ACTION' }).catch(() => {});
@@ -24,13 +21,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     if (request.action === 'LOG_UPDATE') {
-        // Save to storage
         const logEntry = { message: request.message, type: request.type, timestamp: Date.now() };
         
         chrome.storage.local.get(['logs'], (result) => {
             const logs = result.logs || [];
             logs.push(logEntry);
-            // Keep last 50
             if (logs.length > 50) logs.shift();
             
             chrome.storage.local.set({ logs: logs });
@@ -39,19 +34,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 function initiateFlow() {
-    // Open LeetCode
     chrome.tabs.create({ url: LEETCODE_ORIGIN + '/problemset/all/' }, (tab) => {
-        // The content script will check 'is_solving' and take over.
     });
 }
 
-// Alarm for daily logic
 chrome.alarms.create('daily_trigger', { periodInMinutes: 1440 });
 chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === 'daily_trigger') {
         chrome.storage.local.get(['daily_limit'], (res) => {
-            // Check if we should run? Usually yes if installed.
-            // Reset solved count for the day?
             chrome.storage.local.set({ solved_count: 0 }, () => {
                 initiateFlow();
             });
@@ -71,7 +61,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 const badgeText = `${current}/${limit}`;
                 chrome.action.setBadgeText({ text: badgeText });
                 
-                // STRICT CHECK: If we reached (or exceeded) the limit, STOP.
                 if (current >= limit) {
                     console.log('Daily Limit Reached! Stopping workflow.');
                     chrome.runtime.sendMessage({ action: 'LOG_UPDATE', message: 'Daily Quota Completed! Stopping...', type: 'success' });
@@ -83,12 +72,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         message: `Successfully solved ${current} LeetCode problems today.`
                     });
 
-                    // Disable solving flag so it doesn't restart
                     chrome.storage.local.set({ is_solving: false });
                 } else {
                     console.log(`Solved ${current}/${limit}. Continuing to next problem...`);
-                     // Send message to find next
-                    chrome.tabs.sendMessage(sender.tab.id, { action: 'FIND_DAILY' }); 
+                    
+                    // Robust Navigation: Try to message the tab, but fallback to URL update if it fails/disconnects
+                    chrome.tabs.sendMessage(sender.tab.id, { action: 'FIND_DAILY' }, (response) => {
+                         if (chrome.runtime.lastError) {
+                             console.warn('GOD MODE: Content script unavailable. Forcing navigation to problemset.');
+                             chrome.tabs.update(sender.tab.id, { url: LEETCODE_ORIGIN + '/problemset/all/' });
+                         }
+                    });
                 }
             });
         });
@@ -106,13 +100,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     console.log(`GOD MODE: Received code to inject (${solutionCode.length} chars)`);
                     console.log(`GOD MODE: Preview: ${solutionCode.substring(0, 50)}...`);
                     
-                    // Find the correct model by checking its Language ID
                     const models = window.monaco.editor.getModels();
                     let targetModel = null;
                     
                     console.log(`GOD MODE: Found ${models.length} Monaco models.`);
                     
-                    // List of valid coding languages on LeetCode
                     const validLangs = ['cpp', 'java', 'python', 'python3', 'c', 'csharp', 'javascript', 'typescript', 'swift', 'go', 'kotlin', 'scala', 'rust', 'php', 'ruby', 'dart', 'erlang', 'elixir'];
 
                     for (let m of models) {
@@ -120,7 +112,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         const uri = m.uri.toString();
                         console.log(`GOD MODE: Model Analysis -> Lang: ${lang}, URI: ${uri}`);
                         
-                        // Heuristic: Main editor usually has a specific language, not plaintext/markdown
                         if (validLangs.includes(lang)) {
                             targetModel = m;
                             console.log(`GOD MODE: Identified main model by Language ID: ${lang}`);
@@ -128,7 +119,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         }
                     }
 
-                    // Fallback: Check if active editor has a valid language
                     if (!targetModel) {
                         const editors = window.monaco.editor.getEditors();
                         if (editors.length > 0) {
@@ -145,7 +135,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         console.log('GOD MODE: Injected successfully into Language-Identified Model.');
                     } else {
                         console.error('GOD MODE: Could not find any valid code model (only text/log models found).');
-                        // Last resort: Inject into the largest model (likely the code?)
                         let largest = null;
                         let maxLen = -1;
                         for (let m of models) {
@@ -174,35 +163,35 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 sendResponse({ success: true });
             }
         });
-        return true; // Async response
+        return true; 
     }
 
     if (request.action === 'SOLVE_FAILED') {
-        // Do NOT stop. Try another problem.
         chrome.runtime.sendMessage({ action: 'LOG_UPDATE', message: `Failed: ${request.reason}. Retry in 5s...`, type: 'error' });
         
-        // Wait longer to ensure UI settles, then try next
         setTimeout(() => {
             if (sender.tab && sender.tab.id) {
-                // We send FIND_DAILY which triggers findNextProblem (random)
-                chrome.tabs.sendMessage(sender.tab.id, { action: 'FIND_DAILY' });
+                chrome.tabs.sendMessage(sender.tab.id, { action: 'FIND_DAILY' }, (response) => {
+                    if (chrome.runtime.lastError) {
+                         console.warn('GOD MODE: Retry failed (script lost). Reloading problemset...');
+                         chrome.tabs.update(sender.tab.id, { url: LEETCODE_ORIGIN + '/problemset/all/' });
+                    }
+                });
             }
         }, 5000); 
     }
 });
 
-// Alarm for daily trigger logic
-chrome.alarms.create('daily_trigger', { periodInMinutes: 60 }); // Check every hour
+chrome.alarms.create('daily_trigger', { periodInMinutes: 60 });
 chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === 'daily_trigger') {
         checkAndRunAutoSolve();
     }
 });
 
-// Run on browser startup too
 chrome.runtime.onStartup.addListener(() => {
     console.log('GOD MODE: Browser Startup - Checking Auto-Run...');
-    setTimeout(checkAndRunAutoSolve, 5000); // Wait for browser to settle
+    setTimeout(checkAndRunAutoSolve, 5000); 
 });
 
 function checkAndRunAutoSolve() {
@@ -215,14 +204,9 @@ function checkAndRunAutoSolve() {
         const limit = parseInt(data.daily_limit) || 1;
         const current = data.solved_count || 0;
         
-        // Reset count if it's a new day? 
-        // For simplicity, we assume the user manages the "daily" aspect or we blindly run if < limit.
-        // A better "daily" check would involve storing the "last_solved_date".
-        
         chrome.storage.local.get(['last_solved_date'], (dateData) => {
             const today = new Date().toDateString();
             if (dateData.last_solved_date !== today) {
-                // New day! Reset count
                 console.log('GOD MODE: New Day Detected! Resetting count.');
                 chrome.storage.local.set({ solved_count: 0, last_solved_date: today, is_solving: true }, () => {
                    initiateFlow(); 
